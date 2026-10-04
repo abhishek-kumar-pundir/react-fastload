@@ -1,62 +1,38 @@
 # Changelog
 
-This project has not been published yet. This file starts at the first
-real release rather than backfilling a history that doesn't exist.
+All notable changes to ReactFastLoad are documented here.
 
-## 0.1.0 — Initial release (unpublished)
+## 0.1.0 — Initial public release
 
-Pre-1.0: the public API is expected to be broadly stable but may still
-shift based on real-world feedback before a 1.0.0.
+Pre-1.0 release. The public API is expected to be broadly stable but may
+change based on real-world feedback.
 
 ### Added
 
-- **Core scheduler**: `ResourceRegistry`, `PriorityEngine`, `Scheduler`,
-  `LoadManager` — a shared, priority-aware, concurrency-capped scheduler
-  coordinating images, video, audio, and dynamically-imported components
-  through one registry instead of each resource type solving loading
-  independently.
-- **Components**: `<FastLoadProvider>`, `<SmartImage>`, `<SmartVideo>`,
-  `<SmartAudio>`, `lazyComponent()`.
-- **Hooks**: `useLazyLoad`, `usePriority`, `useFastLoadMetrics`,
-  `useFastLoadContext`.
-- **Metrics**: real `PerformanceObserver`/Navigation/Resource Timing
-  reads (FCP, LCP, CLS, TTFB, transfer bytes), kept strictly separate
-  from ReactFastLoad's own internal registry bookkeeping — see
-  `docs/METHODOLOGY.md`.
-- **Request deduplication**: `SmartImage`/`SmartVideo`/`SmartAudio`
-  default their resource id to `${type}:${src}`, so two components
-  rendering the same resource share one load. `LoadManager` reference-
-  counts registration so the shared entry isn't torn down until every
-  consumer has unmounted.
-- **Abort on unmount**: each resource gets an `AbortController`; an
-  in-flight, not-yet-finished resource is aborted once its last consumer
-  unmounts (never one still needed by another mounted consumer, and
-  never one that already finished).
-- **Debug panel**: `<FastLoadProvider debug>` renders every registered
-  resource's state and the scheduler's recent load/defer/prefetch
-  decisions with reasons.
-- **Benchmark app** (`/benchmark`, not published as part of the npm
-  package): Light/Heavy/Extreme scenarios, a three-part Initial/
-  Scheduler/Eventual dashboard, a repeated-run harness reporting median/
-  p75/p95, and self-hosted generated test assets (no third-party image
-  host, no redirects).
+- Adaptive resource scheduler with priority and concurrency control
+- `FastLoadProvider`
+- `SmartImage`, `SmartVideo`, and `SmartAudio`
+- `lazyComponent()`
+- `useLazyLoad`, `usePriority`, `useFastLoadMetrics`, and `useFastLoadContext`
+- Viewport-aware preloading with a shared `IntersectionObserver`
+- Resource deduplication and reference-counted cancellation
+- Network-aware priority scheduling
+- Debug panel and browser performance metrics
+- TypeScript declarations
+- ESM and CommonJS builds
+- Benchmark application for testing scheduler behavior
 
-### Fixed (found during a full-codebase audit before this release)
+### Fixed
 
-- `FastLoadProvider`'s debug panel accessed `process.env.NODE_ENV` with
-  no guard, which would throw in a bundler-free browser environment.
-- Each resource was creating its own `IntersectionObserver` instead of
-  sharing one per provider — wasteful at scale (a 50-resource page
-  created 50 native observers).
-- `LoadManager.register()` could return a stale pre-transition record
-  for `CRITICAL`/eager resources, caused by `ResourceRegistry.setState()`
-  replacing rather than mutating the stored object. Caught by a
-  clean-install runtime smoke test against the packed tarball, not just
-  the local source.
+- Guarded the debug panel's `process.env.NODE_ENV` access for browser environments
+- Shared one `IntersectionObserver` across resources within a provider
+- Fixed stale resource records returned during critical/eager registration
+- Fixed `SmartImage` to use React's `fetchPriority` JSX property
 
 ### Known limitations
 
-See `README.md`'s Limitations section and `docs/ROADMAP.md` for the full
-list, including what was deliberately scoped out (a full resource state
-machine, a binary-heap scheduler, a persistent cache layer, service-worker
-integration, predictive prefetch) and why.
+- Pre-1.0 API may change
+- No built-in retry mechanism
+- Browser network priority remains under browser control
+- `lazyComponent()` requires React 18+
+- Provider configuration is read on initial mount

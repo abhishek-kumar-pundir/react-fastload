@@ -1,169 +1,235 @@
-# react-fastload
+# ReactFastLoad
 
-**An adaptive resource-loading scheduler for React — with real,
-browser-measured performance metrics instead of marketing claims.**
+[![npm version](https://img.shields.io/npm/v/react-fastload.svg)](https://www.npmjs.com/package/react-fastload)
+[![license](https://img.shields.io/npm/l/react-fastload.svg)](https://github.com/abhishek-kumar-pundir/react-fastload/blob/main/LICENSE)
+![types](https://img.shields.io/badge/types-TypeScript-3178c6)
 
-<p>
-  <img alt="npm version" src="https://img.shields.io/npm/v/react-fastload?color=cb3837&label=npm" />
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-lightgrey" />
-  <img alt="types" src="https://img.shields.io/badge/types-TypeScript-3178c6" />
-  <img alt="bundle" src="https://img.shields.io/badge/tree--shakeable-yes-brightgreen" />
-</p>
+An adaptive resource-loading scheduler for React. It prioritizes critical resources, defers non-critical ones, avoids duplicate work, and shows you why things loaded when they did.
 
-One shared scheduler coordinates *when* images, video, audio, and
-dynamically imported components actually fetch — based on viewport
-proximity, priority, network conditions, and a concurrency budget —
-instead of each resource type solving "don't load this yet" independently
-with no coordination between them.
+ReactFastLoad coordinates the resources you register through its components and hooks (`SmartImage`, `SmartVideo`, `SmartAudio`, `lazyComponent`, `useLazyLoad`). It is **not** a `fetch`/XHR interceptor, a CDN, or a compression tool, and it does not make downloads faster by itself. It controls *when* managed resources are handed to the browser, and in *what order*.
 
-```tsx
-import { FastLoadProvider, SmartImage, SmartVideo, SmartAudio, lazyComponent } from "react-fastload";
+> **Status:** `0.1.0` is the first public release. The API is small and tested but pre-1.0, so it may change. See [Limitations](#limitations).
 
-const Analytics = lazyComponent(() => import("./Analytics"), { priority: "LOW" });
+## Features
 
-function App() {
-  return (
-    <FastLoadProvider strategy="adaptive" preloadDistance={1000}>
-      <SmartImage src="/hero.webp" alt="Hero" priority="CRITICAL" />
-      <SmartImage src="/card.webp" alt="Card" priority="auto" />
-      <SmartVideo src="/demo.mp4" poster="/poster.webp" priority="LOW" />
-      <SmartAudio src="/theme.mp3" label="Theme song" priority="IDLE" />
-      <Analytics />
-    </FastLoadProvider>
-  );
-}
-```
-
-## Table of contents
-
-- [Installation](#installation)
-- [Why this exists](#why-this-exists)
-- [How it works](#how-it-works)
-- [How it differs from native lazy loading / React.lazy / code splitting](#how-it-differs)
-- [Quick start](#quick-start)
-- [Reading live metrics](#reading-live-metrics)
-- [Debug mode](#debug-mode)
-- [API reference](#api-reference)
-- [Browser compatibility](#browser-compatibility)
-- [When to use it — and when not to](#when-to-use-it--and-when-not-to)
-- [Benchmarks — and their current limitations](#benchmarks--and-their-current-limitations)
-- [Limitations](#limitations)
-- [Roadmap](#roadmap)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
+- **Priority scheduling:** `CRITICAL`, `HIGH`, `NORMAL`, `LOW`, `IDLE`
+- **Concurrency cap** on scheduler-dispatched loads (default `4`)
+- **Viewport-aware preloading** via one shared `IntersectionObserver`
+- **Deduplication:** components with the same resource id share one registry entry
+- **Lazy media:** `SmartImage`, `SmartVideo`, `SmartAudio`
+- **Scheduled component imports:** `lazyComponent()`
+- **Connection awareness:** `LOW`/`IDLE` resources are pushed back on slow or data-saver connections
+- **Cancellation** when the last consumer unmounts mid-load
+- **Debug panel** and **metrics hook**
+- TypeScript types, ESM and CommonJS builds
 
 ## Installation
 
 ```bash
 npm install react-fastload
-# or
-pnpm add react-fastload
-# or
-yarn add react-fastload
 ```
 
-Peer dependencies: `react >= 17`, `react-dom >= 17`. Ships ESM + CommonJS
-builds and full TypeScript declarations; React is not bundled.
-
-## Why this exists
-
-Native `loading="lazy"` and `React.lazy` each solve one narrow slice of
-"don't fetch this yet," independently, with **no shared concept of
-priority and no shared concurrency budget across resource types.** A page
-with many below-the-fold images, a video, and a few lazy components can
-still burst-request everything with no coordination — the network has no
-way to know your `HIGH`-priority hero image matters more than a `LOW`-
-priority footer icon that happened to scroll into view a moment earlier.
-
-ReactFastLoad puts images, video, and components through **one registry
-and one priority-aware scheduler**, so priority is meaningful across the
-whole page, not just within one resource type.
-
-## How it works
-
-```
-Resource → Registry → Priority Engine → Viewport/Network/User signals
-  → Scheduler → Loading decision → Browser resource → Metrics
-```
-
-- **Registry** — bookkeeping for every resource ReactFastLoad knows about:
-  id, type, priority, state, viewport distance, timestamps.
-- **Priority Engine** — turns declared priority (`CRITICAL` → `IDLE`) plus
-  live signals (viewport distance, connection quality) into an effective
-  score. `CRITICAL` always loads first, unconditionally.
-- **Scheduler** — dispatches eligible resources within a concurrency cap,
-  in priority order, and logs every decision it makes.
-- **Metrics** — real `PerformanceObserver` / Navigation / Resource Timing
-  reads, kept strictly separate from ReactFastLoad's own internal
-  bookkeeping (see [Benchmarks](#benchmarks--and-their-current-limitations)).
-
-Two things that happen automatically, not as opt-in features: **request
-deduplication** (two components rendering the same `src` share one load,
-not two — see `LoadManager`'s reference counting in
-[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)) and **abort-on-unmount**
-(an in-flight, not-yet-loaded resource is cancelled via `AbortController`
-once its last consumer unmounts, rather than finishing a fetch nobody
-needs anymore).
-
-Full detail in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
-
-## How it differs
-
-| | Native `loading="lazy"` | `React.lazy` | ReactFastLoad |
-|---|---|---|---|
-| Cross-resource priority | ❌ | ❌ | ✅ shared priority levels |
-| Shared concurrency budget | ❌ (browser-managed, opaque) | ❌ | ✅ configurable |
-| Works across images + video + audio + components | per-`<img>` only | components only | ✅ all four, one scheduler |
-| Configurable preload distance | limited/inconsistent | n/a | ✅ `preloadDistance` |
-| Debug visibility into *why* something loaded when | ❌ | ❌ | ✅ debug panel + decision log |
-
-It doesn't replace these mechanisms — `SmartImage` still sets
-`decoding="async"` and `fetchpriority`; `lazyComponent` still relies on
-your bundler's code splitting. It adds a coordination layer on top.
+Peer dependencies: `react` and `react-dom` `>=17`. `lazyComponent` needs React 18+ (it uses `useId`).
 
 ## Quick start
 
 ```tsx
-import { FastLoadProvider, SmartImage, SmartVideo, lazyComponent, useFastLoadMetrics } from "react-fastload";
+import { FastLoadProvider, SmartImage, SmartVideo } from "react-fastload";
 
-const Analytics = lazyComponent(() => import("./Analytics"), { priority: "LOW" });
-
-function Gallery({ items }: { items: { id: string; src: string; alt: string }[] }) {
+export default function App() {
   return (
-    <FastLoadProvider strategy="adaptive" preloadDistance={1000}>
-      <SmartImage src="/hero.webp" alt="Hero" priority="CRITICAL" />
+    <FastLoadProvider>
+      {/* Above the fold: render immediately */}
+      <SmartImage src="/hero.webp" alt="Hero" priority="CRITICAL" strategy="eager" width={1200} height={600} />
 
-      {items.map((item) => (
-        <SmartImage key={item.id} src={item.src} alt={item.alt} priority="auto" />
-      ))}
+      {/* Below the fold: placeholder until it nears the viewport */}
+      <SmartImage src="/gallery.webp" alt="Gallery" priority="LOW" style={{ width: 600, height: 400 }} />
 
-      <SmartVideo src="/demo.mp4" poster="/demo-poster.webp" priority="LOW" />
-      <Analytics />
+      <SmartVideo src="/demo.mp4" poster="/poster.webp" priority="LOW" aspectRatio="16/9" />
     </FastLoadProvider>
   );
 }
 ```
 
-## Reading live metrics
+Every `Smart*` component, `lazyComponent` component and hook must render inside a `<FastLoadProvider>`, otherwise it throws.
+
+## `FastLoadProvider`
+
+Creates one scheduler and metrics collector for its subtree.
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `strategy` | `"adaptive" \| "eager" \| "conservative"` | `"adaptive"` | Sets the default `concurrency` (`4` / `8` / `2`). Nothing else. |
+| `concurrency` | `number` | `4` | Max scheduler-dispatched loads at once. Use a positive integer. |
+| `preloadDistance` | `number` (px) | `1000` | How far outside the viewport a resource may be and still become eligible. |
+| `debug` | `boolean` | `false` | Shows the [debug panel](#debug-mode) and logs decisions. |
+
+Props are read once, on first render. To reconfigure, remount the provider (e.g. with a `key`). Nested providers are independent scheduling domains.
 
 ```tsx
-function PerfBadge() {
-  const { lcp, deferredRequests, bytesDeferred } = useFastLoadMetrics();
+<FastLoadProvider concurrency={2} preloadDistance={600} debug={process.env.NODE_ENV !== "production"}>
+  <App />
+</FastLoadProvider>
+```
+
+## Priority and strategy
+
+**Priority** orders resources that are already eligible and competing for a slot:
+
+| Value | Meaning |
+|---|---|
+| `CRITICAL` | Always first. Skips viewport gating, so it is eligible immediately. |
+| `HIGH` | Ahead of `NORMAL`, `LOW`, `IDLE`. Still waits for the preload zone unless `eager`. |
+| `NORMAL` | Default. `"auto"` on Smart components resolves to this. |
+| `LOW` / `IDLE` | Ordered last. Pushed further back on constrained connections. |
+
+Priority never makes a far-away resource eligible (except `CRITICAL`), and it is a hint to ReactFastLoad's own scheduling. The browser still decides actual network priority.
+
+**Strategy** (per resource) controls when it becomes eligible:
+
+| Value | Behavior |
+|---|---|
+| `"eager"` | Eligible immediately; the real element renders right away. Use for above-the-fold content. |
+| `"lazy"` | Eligible when it enters the preload zone, then waits for a free slot. |
+| `"auto"` | Default. `eager` if priority is `CRITICAL`, otherwise `lazy`. |
+
+Don't confuse this with the provider's `strategy`, which only sets default concurrency. Marking many resources `eager` removes most of the benefit of scheduling.
+
+## `SmartImage`
+
+A drop-in `<img>` replacement.
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `src` | `string` | required | Image URL. |
+| `priority` | `Priority \| "auto"` | `"auto"` | See above. |
+| `strategy` | `"eager" \| "lazy" \| "auto"` | `"auto"` | See above. |
+| `placeholder` | `string` (URL) | none | Background shown on the placeholder `<div>` before the `<img>` mounts. |
+| `resourceId` | `string` | `image:${src}` | Used for [deduplication](#deduplication) and `usePriority`. |
+| `estimatedSize` | `number` (bytes) | none | Only feeds the `bytesDeferred` metric. |
+
+All other `<img>` props (`alt`, `width`, `className`, `srcSet`, `onLoad`, `onError`, …) go to the real `<img>`. `decoding` defaults to `"async"`, and `fetchPriority` is derived from priority (see [note](#fetchpriority-note)).
+
+**Layout:** before it loads, a lazy `SmartImage` renders a placeholder `<div>` that receives only `style`. It does not get `className`, `width` or `height`, so reserve space via `style` (e.g. `style={{ width: 320, height: 200 }}` or `aspectRatio`) to avoid layout shift.
+
+## `SmartVideo`
+
+Renders a poster-and-play placeholder until the video is eligible, so no video bytes are requested early. Clicking the placeholder (or pressing Enter/Space) mounts the real `<video>` immediately.
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `src` | `string` | required | Video URL. |
+| `poster` | `string` | none | Placeholder background and `<video>` poster. |
+| `priority`, `strategy`, `resourceId`, `estimatedSize` | | | Same as `SmartImage` (`resourceId` defaults to `video:${src}`). |
+| `aspectRatio` | `string` | none | e.g. `"16/9"`. Keeps the placeholder and video the same size. |
+| `autoplay` | `boolean` | `false` | Honored once eligible; implies `muted`. Use this, not native `autoPlay`. |
+| `controls` | `boolean` | **`true`** | Differs from native `<video>`. |
+
+`preload` is managed for you (`auto` for `CRITICAL`/`HIGH`, otherwise `metadata`). The library never fetches video bytes itself.
+
+```tsx
+<SmartVideo src="/ambient.mp4" poster="/ambient.webp" autoplay loop playsInline controls={false} aspectRatio="21/9" />
+```
+
+## `SmartAudio`
+
+The audio counterpart of `SmartVideo`: a click-to-load pill until eligible, then a real `<audio>`. It takes `src`, `priority`, `strategy`, `resourceId` (`audio:${src}`), `estimatedSize`, `autoplay`, `controls` (default `true`), `muted`, and a `label` for the placeholder text.
+
+```tsx
+<SmartAudio src="/episodes/12.mp3" label="Episode 12" priority="LOW" />
+```
+
+## `lazyComponent`
+
+Like `React.lazy` + `Suspense`, but the `import()` doesn't start until the component's resource is eligible.
+
+```tsx
+import { lazyComponent } from "react-fastload";
+
+const Chart = lazyComponent(() => import("./Chart"), {
+  priority: "LOW",
+  placeholder: <div style={{ height: 320 }} />,
+  fallback: <p>Loading chart…</p>,
+});
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `priority` | `"NORMAL"` | Scheduling priority. |
+| `strategy` | `eager` if `CRITICAL`, else `lazy` | When the import starts. |
+| `placeholder` | `null` | Rendered until eligible. |
+| `fallback` | `placeholder` | Suspense fallback while importing. |
+| `resourceId` | unique per instance | Set it to share one registry entry. |
+
+- Call it at module scope, not inside a component.
+- The module needs a `default` export.
+- Imports are not limited by `concurrency` and can't be cancelled.
+- A failed import is cached and not retried; it surfaces to your nearest error boundary.
+
+## Hooks
+
+| Hook | Purpose |
+|---|---|
+| `useLazyLoad({ id, type, priority, strategy, loader })` | Low-level hook behind the Smart components. Returns `{ ref, state, record }`. Attach `ref` to the element to observe. |
+| `usePriority(resourceId, priority)` | Changes the priority of a registered resource (e.g. on hover). Affects ordering only, not eligibility. |
+| `useFastLoadMetrics()` | Live snapshot of FCP, LCP, CLS, TTFB, Resource Timing totals, and ReactFastLoad's own counters. |
+| `useFastLoadContext()` | Provider internals (`loadManager`, `debug`) for inspection and integrations. |
+
+`useLazyLoad` captures `priority`, `strategy` and `loader` at registration; the effect only re-runs when `id` changes. Its `loader` receives the resource record, so it can honor `resource.abortController?.signal`.
+
+```tsx
+function Card({ id, src }: { id: string; src: string }) {
+  const [hovered, setHovered] = useState(false);
+  usePriority(id, hovered ? "HIGH" : "LOW");
   return (
-    <div>
-      LCP: {lcp ? `${Math.round(lcp)}ms` : "measuring…"} · deferred: {deferredRequests} (
-      {(bytesDeferred / 1024).toFixed(0)} KB est.)
+    <div onMouseEnter={() => setHovered(true)}>
+      <SmartImage src={src} alt="" resourceId={id} priority="LOW" style={{ width: 320, height: 200 }} />
     </div>
   );
 }
 ```
 
-Every field is documented in [docs/API.md](./docs/API.md) as one of three
-kinds — **browser-observed** (from `PerformanceObserver`/Navigation/
-Resource Timing), **internal** (ReactFastLoad's own bookkeeping), or
-**estimated** (only as accurate as the `estimatedSize` you provide) — so
-you always know what you're looking at.
+`useFastLoadMetrics` reports browser-measured values (`fcp`, `lcp`, `cls`, `ttfb`, resource totals) separately from ReactFastLoad's bookkeeping. The `deferredRequests` and `bytesDeferred` counters record scheduling *decisions*, not requests or bytes actually saved.
+
+## Viewport preloading
+
+Lazy resources become eligible before they're visible. `preloadDistance` (default `1000` px) is applied as the `rootMargin` of one shared `IntersectionObserver`, expanding the viewport on every side.
+
+```tsx
+<FastLoadProvider preloadDistance={1500}>
+  <App />
+</FastLoadProvider>
+```
+
+- Scrolling away does not cancel or revert anything.
+- `CRITICAL` and `eager` resources aren't observed.
+- Without `IntersectionObserver`, everything is eligible immediately.
+- Resources inside nested scroll containers are also clipped by the container, so test carousels and scroll panes.
+
+## Concurrency
+
+`concurrency` limits how many scheduler-dispatched loads run at once. Extra eligible resources wait, ordered by priority and then distance.
+
+```tsx
+<FastLoadProvider concurrency={3}>
+  <App />
+</FastLoadProvider>
+```
+
+It does **not** limit browser connections, your own requests, `eager` elements, or `lazyComponent` imports. For non-critical video and audio the loader resolves immediately, so concurrency mostly decides *when their elements mount*.
+
+## Deduplication
+
+Components that resolve to the same resource id share one registry entry (one state, one loader, one `AbortController`). The default id is `${type}:${src}`.
+
+```tsx
+<SmartImage src="/logo.webp" alt="Logo" />
+<SmartImage src="/logo.webp" alt="Logo" />   {/* same entry */}
+```
+
+This deduplicates ReactFastLoad's own scheduling. Each component still renders its own `<img>`, and the browser's cache decides the actual network requests. The first registrant's priority wins. Ids are plain strings (`"/a.webp"` ≠ `"./a.webp"`). To schedule the same `src` independently, pass distinct `resourceId`s.
+
+The entry is aborted only when its last consumer unmounts before the load finishes.
 
 ## Debug mode
 
@@ -173,103 +239,66 @@ you always know what you're looking at.
 </FastLoadProvider>
 ```
 
-Renders a floating panel (dev builds only) listing every registered
-resource, its state, and the scheduler's recent load/defer/prefetch
-decisions with reasons — useful for verifying *why* something loaded when
-it did, rather than guessing.
+Shows a fixed bottom-right panel listing the connection, every registered resource (`[PRIORITY] id: state`), and recent scheduler decisions, and logs each decision with `console.debug` (enable "Verbose" in DevTools). The panel renders nothing when `NODE_ENV` is `production`.
 
-## API reference
+## `fetchPriority` note
 
-See [docs/API.md](./docs/API.md) for the full `<FastLoadProvider>`,
-`<SmartImage>`, `<SmartVideo>`, `<SmartAudio>`, `lazyComponent()`, hooks,
-and type reference. `LoadManager`, `ResourceRegistry`, `PriorityEngine`, and
-`Scheduler` are also exported directly for building custom resource
-wrappers on the same scheduler.
+React's JSX property is `fetchPriority` (camelCase), not the HTML attribute `fetchpriority`. `SmartImage` sets it from the resolved priority when the browser supports it. React 19 accepts this; **React 18.x may log a dev-only "unrecognized prop" warning**, which is harmless. It's a hint, and the browser controls actual request priority.
 
-## Browser compatibility
+## Complete example
 
-Every feature degrades gracefully instead of throwing:
+```tsx
+// App.tsx
+import { FastLoadProvider, SmartAudio, SmartImage, SmartVideo, lazyComponent } from "react-fastload";
 
-| Feature | Fallback when unsupported |
-|---|---|
-| `IntersectionObserver` | Resource reports as immediately eligible |
-| Network Information API | `ConnectionInfo` fields are `null`/`false`; no connection-based adjustment |
-| `PerformanceObserver` (LCP/CLS/paint) | Corresponding metric fields stay `null`, never estimated |
-| `fetchPriority` attribute | Omitted; `loading`/`decoding` still applied |
-| `requestIdleCallback` | Falls back to a short `setTimeout` |
+const Reviews = lazyComponent(() => import("./Reviews"), {
+  priority: "LOW",
+  placeholder: <div style={{ minHeight: 200 }} />,
+  fallback: <p>Loading reviews…</p>,
+});
 
-## When to use it — and when not to
+const gallery = Array.from({ length: 24 }, (_, i) => `/gallery/${i + 1}.webp`);
 
-**Use it when** your page has enough below-the-fold images/video/
-components that load order and concurrency actually matter, and you want
-one consistent priority model plus real metrics to verify the effect.
+export default function App() {
+  return (
+    <FastLoadProvider concurrency={3} preloadDistance={800} debug>
+      <SmartImage src="/hero.webp" alt="Hero" priority="CRITICAL" strategy="eager" width={1280} height={640} />
 
-**Skip it when** your page only has a handful of resources (native
-`loading="lazy"` is simpler and sufficient), or you need guaranteed load
-order regardless of viewport (use `priority="CRITICAL"` + `strategy="eager"`
-on those specific resources instead of reaching for a different tool).
+      <SmartVideo src="/demo.mp4" poster="/demo-poster.webp" priority="HIGH" aspectRatio="16/9" />
+      <SmartAudio src="/theme.mp3" label="Theme song" priority="IDLE" />
 
-## Benchmarks — and their current limitations
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        {gallery.map((src) => (
+          <SmartImage key={src} src={src} alt="" style={{ width: "100%", aspectRatio: "4 / 3" }} />
+        ))}
+      </section>
 
-The `/benchmark` app compares a Baseline page (plain `<img>`/`<video>`/
-`React.lazy`) against a ReactFastLoad page, reading real
-`PerformanceObserver`/Navigation/Resource Timing values — nothing is
-hardcoded. **That said, treat any single run's numbers as illustrative,
-not conclusive**, until run under the protocol below. An early internal
-run surfaced exactly the kind of confound this warning exists for: a TTFB
-drop that a client-side scheduler cannot legitimately produce, which
-almost always means the two pages weren't served under identical
-navigation/cache/dev-server conditions. If you see something similar,
-it's a benchmark-setup bug, not a real effect — see
-[docs/METHODOLOGY.md](./docs/METHODOLOGY.md) for the full breakdown of
-which metrics can and can't be affected by a client-side library, and for
-known caveats (e.g. `transferSize` reporting `0` for opaque cross-origin
-responses).
+      <Reviews />
+    </FastLoadProvider>
+  );
+}
+```
 
-**For a defensible comparison:**
-1. Serve both pages from a **production build**, not the dev server.
-2. Alternate Baseline/ReactFastLoad runs in **fresh browser contexts**
-   (no shared cache/service worker) rather than switching pages in the
-   same tab.
-3. Run each mode **multiple times** (e.g. 10 runs) and report median/p75,
-   not a single sample.
-4. Report **requests avoided** and **bytes transferred** as separate
-   numbers — a library can cut transfer size substantially while barely
-   changing request count, and conflating the two overstates what
-   changed.
-5. Only compare numbers gathered under identical connection/device
-   conditions.
+## When to use it
 
-The benchmark app now supports exactly this: three content-weight
-scenarios (Light/Heavy/Extreme) and a repeated-run harness that reports
-median/p75/p95 rather than a single sample — see
-[benchmark/README.md](./benchmark/README.md).
+Worth considering for media-heavy pages with many below-the-fold resources, where you want explicit priority, shared concurrency limits, and visibility into loading decisions across images, media and code-split components.
 
-## Roadmap
+For a small app with a few images, native `loading="lazy"` is likely enough. It won't help with server latency, unoptimized assets, third-party scripts, or `fetch` requests.
 
-Several larger ideas (request deduplication, a real dependency graph,
-service-worker integration, predictive prefetch, chunked/range loading,
-a multi-level cache) have been proposed for a future version. See
-[docs/ROADMAP.md](./docs/ROADMAP.md) for an honest triage of which of
-those are worth building next, which need more design first, and which
-I'd push back on or scope down — rather than a promise to build all of
-it.
+ReactFastLoad makes **no performance claims**. Results depend on your app, network and configuration, and misconfiguration can make things worse. Measure with Lighthouse, WebPageTest or real-user monitoring before and after.
 
 ## Limitations
 
-- The scheduler only coordinates resources it's explicitly told about —
-  it never intercepts `fetch`, monkey-patches globals, or touches
-  third-party scripts.
-- `CRITICAL`-priority resources are never delayed, by design — don't mark
-  something `CRITICAL` unless it genuinely must load first regardless of
-  network conditions.
-- `bytesDeferred` is only as accurate as the `estimatedSize` you pass per
-  resource — omit it and that resource contributes `0`, which can make
-  the deferred-bytes total look artificially low even when real bytes
-  were deferred. Pass `estimatedSize` on `SmartImage`/`SmartVideo`/
-  `SmartAudio` for a meaningful number.
-- LCP/CLS can still change after being read; see
-  [docs/METHODOLOGY.md](./docs/METHODOLOGY.md).
+- Only schedules resources registered through its components and hooks.
+- The browser owns the network; priority and `fetchPriority` are hints.
+- Concurrency covers scheduler-dispatched loads only.
+- Needs `IntersectionObserver` for gating and `navigator.connection` for connection ordering; both degrade gracefully when missing.
+- No retry and no built-in error fallback. A failed lazy `SmartImage` returns to its placeholder (`data-fastload-state="error"`), and `onError` isn't a reliable signal there.
+- Provider props are not reactive after first render.
+- `lazyComponent`'s `preloadDistance` option is accepted but currently ignored.
+- `lazyComponent` requires React 18+ despite the `>=17` peer range.
+- SSR: lazy media render placeholders on the server; use the components from Client Components where relevant. Hydration is untested.
+- Tested in jsdom with a mocked `IntersectionObserver`; there are no real-browser tests yet.
 
 ## Development
 
@@ -280,18 +309,12 @@ npm test
 npm run build
 ```
 
-```bash
-cd benchmark
-npm install
-npm run dev
-```
+Requires Node.js `>=16`. A runnable benchmark app lives in `/benchmark` (not published to npm). Contributions are welcome: fork, add tests for behavior changes, run typecheck/test/build, and open a PR.
 
-## Contributing
+## Links
 
-Issues and PRs welcome. Please include or update tests for any behavioral
-change to `core/`, `observers/`, or `metrics/` — these are the modules the
-rest of the library's correctness depends on.
+- [npm](https://www.npmjs.com/package/react-fastload) · [GitHub](https://github.com/abhishek-kumar-pundir/react-fastload) · [Issues](https://github.com/abhishek-kumar-pundir/react-fastload/issues) · [Changelog](./CHANGELOG.md)
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+[MIT](./LICENSE)
