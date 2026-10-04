@@ -63,11 +63,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/react-fastload.git"
+    "url": "https://github.com/abhishek-kumar-pundir/react-fastload.git"
   },
-  "homepage": "https://github.com/your-org/react-fastload#readme",
+  "homepage": "https://github.com/abhishek-kumar-pundir/react-fastload#readme",
   "bugs": {
-    "url": "https://github.com/your-org/react-fastload/issues"
+    "url": "https://github.com/abhishek-kumar-pundir/react-fastload/issues"
   },
   "engines": {
     "node": ">=16"
