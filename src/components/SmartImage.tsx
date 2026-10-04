@@ -118,7 +118,7 @@ export function SmartImage({
   // `fetchPriority` isn't declared on ImgHTMLAttributes in every @types/react
   // version, but it's a real, standardized DOM attribute — pass it through
   // via a loosened type rather than skipping a legitimate perf hint.
-  const imgProps: React.ImgHTMLAttributes<HTMLImageElement> & { fetchpriority?: string } = {
+  const imgProps: React.ImgHTMLAttributes<HTMLImageElement> & { fetchPriority?: string } = {
     src,
     alt,
     decoding,
@@ -126,7 +126,7 @@ export function SmartImage({
     style: containerStyle,
     onLoad,
     onError,
-    ...(supportsFetchPriority() ? { fetchpriority: fetchPriorityFor(resolvedPriority) } : {}),
+    ...(supportsFetchPriority() ? { fetchPriority: fetchPriorityFor(resolvedPriority) } : {}),
     ...rest,
   };
 
