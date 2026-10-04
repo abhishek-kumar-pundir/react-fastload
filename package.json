@@ -1,0 +1,75 @@
+{
+  "name": "react-fastload",
+  "version": "0.1.0",
+  "description": "An adaptive resource-loading scheduler for React apps, with real browser performance metrics — not marketing claims.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^14.2.1",
+    "@types/node": "^26.6.3",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "jsdom": "^24.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  },
+  "keywords": [
+    "react",
+    "performance",
+    "lazy-loading",
+    "scheduler",
+    "web-vitals",
+    "intersection-observer",
+    "video",
+    "audio",
+    "concurrency",
+    "viewport",
+    "preload",
+    "deduplication"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/react-fastload.git"
+  },
+  "homepage": "https://github.com/your-org/react-fastload#readme",
+  "bugs": {
+    "url": "https://github.com/your-org/react-fastload/issues"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
