@@ -7,6 +7,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./tests/setup.ts"],
+    // Without this, Vitest's default include pattern recurses into
+    // benchmark/ too (it's a separate package with its own vitest.config.ts
+    // and "react-fastload" import alias) — the library's own `npm test`
+    // should only ever run the library's own tests under /tests.
+    exclude: ["**/node_modules/**", "benchmark/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

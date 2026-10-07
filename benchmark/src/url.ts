@@ -4,10 +4,14 @@ export function getParams() {
   return new URLSearchParams(window.location.search);
 }
 
-export function getMode(): "baseline" | "fastload" | "results" {
+export type Mode = "overview" | "lab" | "raw" | "baseline" | "fastload" | "results";
+
+export function getMode(): Mode {
   const mode = getParams().get("mode");
-  if (mode === "fastload" || mode === "results") return mode;
-  return "baseline";
+  if (mode === "fastload" || mode === "results" || mode === "lab" || mode === "raw" || mode === "baseline") return mode;
+  // No (or unknown) ?mode= lands on the Overview. The Baseline/ReactFastLoad
+  // page benchmarks are unchanged and still reachable via ?mode=baseline.
+  return "overview";
 }
 
 export function getScenario(): ScenarioName {

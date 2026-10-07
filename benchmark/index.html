@@ -3,10 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>react-fastload benchmark</title>
+    <title>ReactFastLoad — React Resource Loading Scheduler &amp; Performance Benchmark</title>
+    <meta
+      name="description"
+      content="ReactFastLoad is an open-source adaptive resource-loading scheduler for React, with priority scheduling, concurrency control, viewport preloading, and browser performance benchmarks."
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0c0f14" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Open Graph / social preview. URL-dependent tags (og:url, og:image,
+         canonical, twitter:image) and JSON-LD are injected at build time by
+         the seo plugin in vite.config.ts, and only when VITE_SITE_URL is set. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ReactFastLoad" />
+    <meta property="og:title" content="ReactFastLoad — React Resource Loading Scheduler &amp; Performance Benchmark" />
+    <meta
+      property="og:description"
+      content="ReactFastLoad is an open-source adaptive resource-loading scheduler for React, with priority scheduling, concurrency control, viewport preloading, and browser performance benchmarks."
+    />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:title" content="ReactFastLoad — React Resource Loading Scheduler &amp; Performance Benchmark" />
+    <meta
+      name="twitter:description"
+      content="Open-source adaptive resource-loading scheduler for React: priority scheduling, concurrency control, viewport preloading, and browser performance benchmarks."
+    />
+
+    <script>
+      // Dark page background from the first paint for the dashboard views.
+      // The legacy Light/Heavy/Extreme pages keep their original white page.
+      (function () {
+        var m = new URLSearchParams(location.search).get("mode");
+        if (!m || m === "overview" || m === "lab" || m === "raw") {
+          document.documentElement.classList.add("rfl-dark");
+        }
+      })();
+    </script>
+    <style>
+      html.rfl-dark,
+      html.rfl-dark body {
+        background: #0c0f14;
+        color: #e8ecf3;
+        margin: 0;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static fallback for crawlers / no-JS. Replaced when the app mounts. -->
+      <main style="max-width: 720px; margin: 0 auto; padding: 48px 24px; font-family: system-ui, sans-serif; line-height: 1.6">
+        <h1>ReactFastLoad</h1>
+        <p>
+          ReactFastLoad is an open-source adaptive resource-loading scheduler for React, available on npm as
+          <code>react-fastload</code>. It provides priority scheduling, concurrency control, viewport-aware preloading,
+          resource deduplication, and browser performance metrics.
+        </p>
+        <p>This page is an interactive benchmark that visualizes the scheduler. It needs JavaScript to run.</p>
+        <p>
+          <a href="https://github.com/abhishek-kumar-pundir/react-fastload">GitHub</a> ·
+          <a href="https://www.npmjs.com/package/react-fastload">npm</a>
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -29,6 +29,12 @@ export class Scheduler {
   private decisions: SchedulerDecision[] = [];
   private readonly maxDecisionLog = 200;
   private scheduled = false;
+  /**
+   * Context from the most recent requestPass() call. Kept only so a pass
+   * can be re-requested when a load settles and frees a concurrency slot
+   * (see dispatch()). Never read by anything else.
+   */
+  private lastCtx?: PriorityContext;
 
   constructor(
     private registry: ResourceRegistry,
@@ -54,6 +60,7 @@ export class Scheduler {
    * one frame) only trigger a single pass.
    */
   requestPass(ctx: PriorityContext): void {
+    this.lastCtx = ctx;
     if (this.scheduled) return;
     this.scheduled = true;
     queueMicrotask(() => {
@@ -103,6 +110,12 @@ export class Scheduler {
       .finally(() => {
         this.activeCount -= 1;
         this.unregisterLoader(resource.id);
+        // A slot just freed up. Without this, resources that were queued
+        // behind the concurrency cap stayed "eligible" until some
+        // unrelated event (a new registration, an IntersectionObserver
+        // callback) happened to trigger another pass. Coalesced into a
+        // microtask like every other pass; a no-op if nothing is queued.
+        if (this.lastCtx) this.requestPass(this.lastCtx);
       });
   }
 

@@ -95,6 +95,91 @@ For a fully controlled comparison, use a fresh private/incognito window
 per run, or an external tool like Lighthouse CI or Playwright with
 explicit cache/network control.
 
+## Scenario Lab (`?mode=lab`)
+
+Four controlled, isolated demonstrations of specific scheduler
+mechanisms — separate from the page-level Light/Heavy/Extreme
+benchmarks above, which measure real network behavior on a realistic
+page. The Lab trades network realism for clarity: three of its four
+panels use a deterministic artificial delay instead of a real fetch, so
+what you're seeing is provably the scheduler's own behavior (ordering,
+concurrency, deduplication), not a lucky network run. This is a
+real trade-off, stated explicitly in the UI: these are not a measurement
+of real page-load performance.
+
+- **Priority ordering** — 6 resources become eligible at the same
+  instant under a fixed concurrency of 2; toggle the scheduler on/off to
+  see priority stop mattering when nothing coordinates dispatch.
+- **Concurrency cap** — 8 same-priority resources; change the
+  concurrency slider and watch the completion span change.
+- **Viewport-aware preloading** — the one panel using REAL browser
+  geometry: 10 blocks in a scrollable container, each a real registered
+  resource using the actual shared `IntersectionObserver`. Scroll it.
+- **Request deduplication** — three independently toggleable
+  "consumers" resolving to the same resource id; watch the real registry
+  entry count stay at 1 regardless of how many are mounted, and the
+  entry survive until the last one unmounts.
+
+Priority and Concurrency panels have an **Export JSON** button producing
+a file with the full timeline, the scheduler's real decision log,
+environment info, and explicit warnings about what the data does and
+doesn't represent (see `src/lab/exportResults.ts`).
+
+A written proposal for a future per-resource profiling API (explicitly
+**not implemented**) lives at
+[../docs/PROFILER-PROPOSAL.md](../docs/PROFILER-PROPOSAL.md).
+
+### Testing
+
+The Lab's pure derived-metric functions (`lab/derivedMetrics.ts`,
+`lab/synthetic.ts`) have their own test suite, separate from the
+library's:
+
+```bash
+cd benchmark
+npm test
+```
+
+## Overview (`/`, `?mode=overview`)
+
+The default view. It presents the same two timeline workloads as the Scenario Lab
+(priority ordering, concurrency cap) with a headline metric strip, a scheduling
+timeline, a priority-order visual and a concurrency visual. It is a presentation
+layer: it runs the Lab's own `useLabRun` hook unchanged, so every number comes from
+the scheduler registry's real timestamps (`performance.now()`), exactly as in the Lab.
+
+- **Tabs:** Overview, Scenarios (`?mode=lab`, the Scenario Lab), Raw Data (`?mode=raw`:
+  raw table, full decision log, JSON export, links to the real-page benchmarks).
+  The Baseline / ReactFastLoad / Results pages are unchanged (`?mode=baseline|fastload|results`).
+- **Metric formulas** (ms since run start): first dispatch = `min(started)`; queue wait =
+  `started - eligible`, shown as its median; completion span = `max(completed) - min(started)`,
+  shown only once every resource has finished (`—` while running, never estimated).
+- **Presentation Mode** (`?present=1`): only hides the configuration / raw / log / about
+  sections and enlarges the timeline. It does not touch execution or measurement.
+- **Changing scenario, concurrency or the scheduler toggle** clears the results and mounts a
+  fresh scheduler, so a new configuration never shows old data.
+- The workloads use a fixed artificial delay per resource. This is a controlled
+  demonstration of scheduler behavior, not a measurement of real page-load performance.
+
+## SEO / social metadata
+
+`index.html` carries the title, description and Open Graph / Twitter tags. The JSON-LD
+(`SoftwareApplication`) and every tag that needs the deployed URL (`canonical`, `og:url`,
+`og:image`, `twitter:image`, JSON-LD `url`) are injected by the plugin in `vite.config.ts`.
+
+The production URL of the benchmark is not known to this repository, so nothing is invented.
+Set it at build time:
+
+```bash
+VITE_SITE_URL=https://your-benchmark-domain npm run build
+# or put VITE_SITE_URL=... in benchmark/.env.production (see .env.example)
+```
+
+- Without `VITE_SITE_URL`: no canonical / og:url / og:image tags are emitted.
+- `localhost` and private-network URLs are rejected, so dev URLs never reach production metadata.
+- `og:image` is emitted only if `VITE_SITE_URL` is set **and** `public/og-image.png`
+  exists (1200×630 recommended; a screenshot of a completed Overview run works well).
+
 ## Running it
 
 ```bash

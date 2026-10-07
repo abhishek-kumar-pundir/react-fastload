@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ReactFastLoad">
+  <rect width="32" height="32" rx="7" fill="#0c0f14"/>
+  <rect x="6" y="7" width="12" height="3.2" rx="1.6" fill="#ef4444"/>
+  <rect x="6" y="12" width="16" height="3.2" rx="1.6" fill="#f97316"/>
+  <rect x="10" y="17" width="14" height="3.2" rx="1.6" fill="#eab308"/>
+  <rect x="14" y="22" width="12" height="3.2" rx="1.6" fill="#3b82f6"/>
+</svg>

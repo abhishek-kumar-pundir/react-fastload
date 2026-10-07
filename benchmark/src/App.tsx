@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import BaselinePage from "./BaselinePage";
 import FastLoadPage from "./FastLoadPage";
 import ResultsPage from "./ResultsPage";
+import { OverviewApp } from "./overview/OverviewApp";
 import { getMode, getScenario, buildUrl } from "./url";
 import { clearRuns } from "./runHarness";
 import { SCENARIOS, type ScenarioName } from "./data";
@@ -17,6 +18,9 @@ export default function App() {
   const scenario = getScenario();
 
   if (mode === "results") return <ResultsPage />;
+  if (mode === "overview" || mode === "lab" || mode === "raw") {
+    return <OverviewApp initialView={mode} />;
+  }
 
   return (
     <div>
@@ -80,6 +84,9 @@ function Controls({ mode, scenario }: { mode: "baseline" | "fastload"; scenario:
         Start {runCount}-run comparison
       </button>
       <a href={buildUrl({ mode: "results", scenario })}>View results</a>
+      <span style={{ opacity: 0.4 }}>|</span>
+      <a href={buildUrl({ mode: "overview" })}>← Overview</a>
+      <a href={buildUrl({ mode: "lab" })}>Scenario Lab</a>
     </nav>
   );
 }
