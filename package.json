@@ -1,6 +1,6 @@
 {
   "name": "react-fastload",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An adaptive resource-loading scheduler for React apps, with real browser performance metrics — not marketing claims.",
   "type": "module",
   "main": "./dist/index.cjs",
